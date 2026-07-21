@@ -1,2 +1,2 @@
-# QuantStrategy-
+# QuantStrategy
 Quant Strategy Dashboard.
