@@ -1,0 +1,69 @@
+# ================================
+# GitHub Pages 公开库 — 排除清单
+# ================================
+
+# ── 监控（含微信密钥 config.json）──
+monitor/
+
+# ── 训练引擎 ──
+v3/
+
+# ── 数据（股票K线、交易日历）──
+data/
+
+# ── 输出（日志、report.json）──
+outputs/
+
+# ── 模型 ──
+models/
+
+# ── 服务端代码 ──
+web/cloud_dashboard.py
+web/dashboard_state.py
+web/__pycache__/
+
+# ── 工具库 ──
+utils/
+
+# ── 打包脚本 ──
+pack.py
+
+# ── Python 临时文件 ──
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+*.egg
+.eggs/
+
+# ── 系统文件 ──
+.DS_Store
+Thumbs.db
+*.7z
+*.log
+
+# ── IDE ──
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── 工作记录 ──
+.server_state.json
+progress.json
+server_err.txt
+server_out.txt
+.workbuddy/
+GITHUB_PAGES_部署指南.md
+*.md
+
+# ── 排除但不包括的文件（允许名单）──
+!.github/workflows/*.yml
+!web/dashboard.html
+!.gitignore
+
+# ── 额外排除 ──
+archive/
+test_claw_backtest.py
+运行命令.txt
+*.txt
