@@ -1,0 +1,97 @@
+# 云服务器健康检查 + 宕机通知
+# 每 5 分钟 ping 3 次（间隔 10s），3 次全挂 → 创建 GitHub Issue
+# 恢复后自动关闭 Issue
+# GitHub Issue 创建时自动发送邮件通知
+
+name: Server Health Check
+
+on:
+  schedule:
+    # A股交易日 08:00-16:00 CST = 00:00-08:00 UTC，每 5 分钟
+    - cron: '*/5 0-8 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping server (3 attempts)
+        id: ping
+        run: |
+          FAILS=0
+          for i in 1 2 3; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 \
+              "http://43.136.87.122:8765/api/time" 2>/dev/null || echo "000")
+            if [ "$STATUS" = "200" ]; then
+              echo "Attempt $i: OK"
+              echo "down=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            FAILS=$((FAILS + 1))
+            echo "Attempt $i: FAIL (HTTP $STATUS)"
+            [ $i -lt 3 ] && sleep 10
+          done
+          echo "down=true" >> $GITHUB_OUTPUT
+          echo "Server DOWN after 3 attempts"
+
+      - name: Create alert issue
+        if: steps.ping.outputs.down == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['server-down'],
+              state: 'open',
+            });
+
+            if (existing.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '🚨 量化监控服务器宕机',
+                body: `## 服务器无响应
+
+                **检测时间**: ${new Date().toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'})}
+                **地址**: http://43.136.87.122:8765
+                **详情**: 连续 3 次健康检查失败
+
+                请检查云服务器是否正常运行。恢复后此 Issue 将自动关闭。`,
+                labels: ['server-down'],
+              });
+              console.log('🚨 Alert issue created');
+            } else {
+              console.log('Alert issue already open #' + existing[0].number);
+            }
+
+      - name: Close alert on recovery
+        if: steps.ping.outputs.down != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['server-down'],
+              state: 'open',
+            });
+
+            for (const issue of issues) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `✅ 服务器已恢复 — ${new Date().toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'})}`,
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+              });
+              console.log('✅ Closed issue #' + issue.number);
+            }
